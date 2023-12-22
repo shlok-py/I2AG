@@ -18,12 +18,11 @@ class Diffusion:
         self.device = device
         self.image_size = image_size
         self.beta = self.get_beta(self.beta_start, self.beta_end).to(device) #get linear variance schedule
-        self.alpha = 1. - self.beta
-        # self.sqrt_alpha = torch.sqrt(self.alpha)
+        self.alpha = 1 - self.beta
+        self.sqrt_alpha = torch.sqrt(self.alpha)
         self.alpha_hat = self._get_alpha_hat(self.alpha) # get the cumulative product of alpha
         self.sqrt_alpha_hat = torch.sqrt(self.alpha_hat)
-        # self.sqrt_alpha_inverse = torch.sqrt(1-self.alpha)
-        self.sqrt_alpha_hat_inverse = torch.sqrt(1-self.alpha_hat)
+        self.sqrt_alpha_inverse = torch.sqrt(1-self.alpha)
         # print(self.sqrt_alpha)
         self.noise = self._get_gaussian_noise()
     
@@ -36,10 +35,6 @@ class Diffusion:
         return betas
     def _get_gaussian_noise(self):
         return torch.randn(3, self.image_size, self.image_size).to(self.device)
-    
-    def t_noiser(self, x, t):
-        # noise = self._get_gaussian_noise() 
-        return self.sqrt_alpha_hat[t]*x + self.sqrt_alpha_hat_inverse[t] * self.noise, self.noise
     
     def noiser(self, x): # noise the image
         noised = []
@@ -63,8 +58,7 @@ if __name__ == "__main__":
     x = x.to(diffusion.device)
     print(x.shape)
     # x = x.to(diffusion.device)
-    # x_noisy, noised = diffusion.noiser(x)
-    x_noisy, noise = diffusion.t_noiser(x, 199)
+    x_noisy, noised = diffusion.noiser(x)
     print(x_noisy.shape) 
     # plt.subplot(1,2,1)
     # x = np.transpose(x, (1, 2, 0))
