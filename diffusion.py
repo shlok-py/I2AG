@@ -1,4 +1,7 @@
 import torch
+from torch import optim
+import torch.nn as nn
+import copy
 import torch.nn.functional as F
 import numpy as np
 import matplotlib.pyplot as plt
@@ -6,12 +9,19 @@ from PIL import Image
 from torchvision import transforms
 from torchvision.utils import make_grid
 from PIL import Image
+from tqdm import tqdm
 import os
+from UNet import EMA, UNet_conditional
+import logging
+from torch.utils.tensorboard import SummaryWriter
+from utils import load_transformed_dataset, plot_images, save_images
+from encoder import Encoder
+
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 # image_path = '/home/shlok/working_data/Ferret/images/0BPYR995WNU5.jpg'
 image_path = 'd://working_data/Ferret/images/0BPYR995WNU5.jpg'
 class Diffusion:
-    def __init__(self, noise_steps = 1000, beta_start = 0.0001, beta_end = 0.02, image_size = 256, device = 'cpu') -> None:
+    def __init__(self, noise_steps = 1000, beta_start = 0.0001, beta_end = 0.02, image_size = 256, device = 'cuda') -> None:
         self.noise_steps = noise_steps
         self.beta_start = beta_start
         self.beta_end = beta_end
@@ -36,6 +46,8 @@ class Diffusion:
     def _get_gaussian_noise(self):
         return torch.randn(3, self.image_size, self.image_size).to(self.device)
     
+    def t_noiser(self, x):
+        return self.sqrt_alpha_hat*x + self.sqrt_alpha_hat_inverse * self._get_gaussian_noise()
     def noiser(self, x): # noise the image
         noised = []
         for i in range(self.noise_steps):
@@ -46,7 +58,91 @@ class Diffusion:
         # return self.sqrt_alpha *x + self.sqrt_alpha_inverse * self._get_gaussian_noise()
     def _noiser(self, t,x):
         return self.sqrt_alpha[t] *x + self.sqrt_alpha_inverse[t] * self._get_gaussian_noise()
+    
+    def sample_spectrograms(self, model, n, image_embeddings):
+        print(f"Sampling{n} spectrograms")
+        model.eval()
+        with torch.no_grad():
+            x = torch.randn((n,3,self.image_size, self.image_size)).to(self.device)
+            for i in tqdm(reversed(range(1, self.noise_steps)), position = 0):
+                t = (torch.ones(n) * i).long().to(self.device)
+                # x_t, noise = diffusion.noise_images(images, t)
+                predicted_noise = model(x, t, image_embeddings)
+                # loss = mse(noise, predicted_noise)
+                alpha = self.alpha[t]
+                alpha_hat = self.alpha_hat[t]
+                beta = self.beta[t]
+                
+                if i>1:
+                    noise = torch.randn_like(x)
+                else:
+                    noise = torch.zeros_like(x)
+                x = 1/(torch.sqrt(alpha)) * (x-((1-alpha)/torch.sqrt(1-alpha_hat)) * predicted_noise) + torch.sqrt(beta) * noise
+            model.train()
+            x = (x.clamp(-1,1) + 1) /2
+            x = (x * 255)/type(torch.uint8)
+            return x
+def train(args):
+    device = args.device
+    dataloader = load_transformed_dataset()
+    model = UNet_conditional().to(device)
+    optimizer = optim.AdamW(model.parameters(), lr=args.lr)
+    mse = nn.MSELoss()
+    diffusion = Diffusion(img_size=args.img_size, device=device)
+    # logger = SummaryWriter(os.path.join("runs", args.run_name))
+    l = len(dataloader)
+    ema = EMA(0.995)
+    ema_model = copy.deepcopy(model).eval().requires_grad_(False)
 
+    for epoch in range(100):
+        logging.info(f"Starting epoch {epoch}:")
+        pbar = tqdm(dataloader)
+        for i, (images, spectrograms) in enumerate(pbar):
+            images = images.to(device)
+            spectrograms = spectrograms.to(device)
+            t = diffusion.sample_timesteps(spectrograms.shape[0]).to(device)
+            x_t, noise = diffusion.t_noiser(spectrograms, t)
+            # if np.random.random() < 0.1:
+            #     labels = None
+            encoder = Encoder(args.img_size, 64)
+            latent_image = encoder(images)
+            predicted_noise = model(x_t, t, latent_image)
+            loss = mse(noise, predicted_noise)
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            ema.step_ema(ema_model, model)
+
+            pbar.set_postfix(MSE=loss.item())
+            # logger.add_scalar("MSE", loss.item(), global_step=epoch * l + i)
+
+        if epoch % 10 == 0:
+            # labels = torch.arange(10).long().to(device)
+            sampled_images = diffusion.sample_spectrograms(model, n=len(t), image_embeddings=latent_image)
+            # ema_sampled_images = diffusion.sample_spectrograms(ema_model, n=len(labels), labels=labels)
+            plot_images(sampled_images)
+            save_images(sampled_images, os.path.join("results", args.run_name, f"{epoch}.jpg"))
+            # save_images(ema_sampled_images, os.path.join("results", args.run_name, f"{epoch}_ema.jpg"))
+            torch.save(model.state_dict(), os.path.join("models", args.run_name, f"ckpt.pt"))
+            torch.save(ema_model.state_dict(), os.path.join("models", args.run_name, f"ema_ckpt.pt"))
+            torch.save(optimizer.state_dict(), os.path.join("models", args.run_name, f"optim.pt"))
+
+def launch():
+    import argparse
+    parser = argparse.ArgumentParser()
+    args = parser.parse_args()
+    args.run_name = "I2AG__"
+    args.epochs = 300
+    args.batch_size = 4
+    args.img_size = 256
+    # args.num_classes = 10
+    # args.dataset_path = r"C:\Users\dome\datasets\cifar10\cifar10-64\train"
+    args.device = "cuda"
+    args.lr = 3e-4
+    train(args)
+    
+            
 if __name__ == "__main__":
     diffusion = Diffusion()
     x = Image.open(image_path)

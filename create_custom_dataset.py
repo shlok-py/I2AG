@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import Dataset
 from torchvision import transforms
 
-IMG_SIZE = 64
+IMG_SIZE = 256
 
 class CustomDataset(Dataset):
     def __init__(self, images, spectrograms):

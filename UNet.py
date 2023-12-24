@@ -187,7 +187,7 @@ class UNet(nn.Module):
 
 
 class UNet_conditional(nn.Module):
-    def __init__(self, c_in=3, c_out=3, time_dim=256, num_classes=None, device="cuda"):
+    def __init__(self, c_in=3, c_out=3, time_dim=256, num_classes=None, image_embeddings = None, device="cuda"):
         super().__init__()
         self.device = device
         self.time_dim = time_dim
@@ -213,6 +213,7 @@ class UNet_conditional(nn.Module):
 
         if num_classes is not None:
             self.label_emb = nn.Embedding(num_classes, time_dim)
+        self.image_embeddings = image_embeddings
 
     def pos_encoding(self, t, channels):
         inv_freq = 1.0 / (
@@ -224,12 +225,15 @@ class UNet_conditional(nn.Module):
         pos_enc = torch.cat([pos_enc_a, pos_enc_b], dim=-1)
         return pos_enc
 
-    def forward(self, x, t, y):
+    def forward(self, x, t, latent_image):
         t = t.unsqueeze(-1).type(torch.float)
         t = self.pos_encoding(t, self.time_dim)
 
-        if y is not None:
-            t += self.label_emb(y)
+        if latent_image is not None:
+            latent_image = latent_image.view(latent_image.size(0), -1, 1)
+            latent_image = latent_image.expand(-1, -1, self.time_dim)
+            # t += self.label_emb(y)
+            t += latent_image
 
         x1 = self.inc(x)
         x2 = self.down1(x1, t)

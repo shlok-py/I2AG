@@ -1,9 +1,13 @@
-from torchvision import transforms
+# from torchvision import transforms
+import torch
+import torchvision
 from torch.utils.data import DataLoader
 import numpy as np
 import h5py
 import matplotlib.pyplot as plt
 from create_custom_dataset import CustomDataset
+from PIL import Image
+from tqdm import tqdm
 IMG_SIZE = 64
 BATCH_SIZE = 4
 
@@ -85,8 +89,27 @@ def load_transformed_dataset():
     batch_size = 4
     dataloader = DataLoader(dataset, batch_size=batch_size)
     return dataloader
+
+def plot_images(images):
+    plt.figure(figsize=(32, 32))
+    plt.imshow(torch.cat([
+        torch.cat([i for i in images.cpu()], dim=-1),
+    ], dim=-2).permute(1, 2, 0).cpu())
+    plt.show()
+
+
+def save_images(images, path, **kwargs):
+    grid = torchvision.utils.make_grid(images, **kwargs)
+    ndarr = grid.permute(1, 2, 0).to('cpu').numpy()
+    im = Image.fromarray(ndarr)
+    im.save(path)
+    
 if __name__ == '__main__':
     # get_data("../../data.h5")
     # get_data('new_data.h5')
     # load_data()
     load_transformed_dataset()
+    pbar = tqdm(load_transformed_dataset)
+    for i, (images, spectrograms) in enumerate(pbar):
+        print(images)
+        print(spectrograms)
