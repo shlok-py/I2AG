@@ -11,7 +11,7 @@ class Encoder(nn.Module):
         super(Encoder, self).__init__()
         self.input_size = input_size
         self.encoding_dim = encoding_dim
-        self.encoder = nn.Linear(self.input_size**2, self.encoding_dim)
+        self.encoder = nn.Linear(self.input_size, self.encoding_dim)
         # self.encoder = nn.Sequential(nn.Conv2d(3,16, kernel_size = 3, padding = 1),
         #                             nn.ReLU(),
         #                             nn.MaxPool2d(2,2),
@@ -24,6 +24,7 @@ class Encoder(nn.Module):
         self.fc = nn.Linear(8 * 64 * 64, 128)
     def forward(self, x):
         x = self.flatten(x)
+        print("Flatten shape", x.shape)
         x = self.encoder(x)
         # x = self.fc(x)
         

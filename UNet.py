@@ -187,7 +187,7 @@ class UNet(nn.Module):
 
 
 class UNet_conditional(nn.Module):
-    def __init__(self, c_in=3, c_out=3, time_dim=256, num_classes=None, image_embeddings = None, device="cuda"):
+    def __init__(self, c_in=4, c_out=4, time_dim=256, num_classes=None, image_embeddings = None, device="cpu"):
         super().__init__()
         self.device = device
         self.time_dim = time_dim
@@ -230,13 +230,18 @@ class UNet_conditional(nn.Module):
         t = self.pos_encoding(t, self.time_dim)
 
         if latent_image is not None:
-            latent_image = latent_image.view(latent_image.size(0), -1, 1)
-            latent_image = latent_image.expand(-1, -1, self.time_dim)
+            print("time_space:", t.shape, "\n latent_space", latent_image.shape)
+            
+            # latent_image = latent_image.view(latent_image.size(0), -1, 1)
+            # latent_image = latent_image.expand(-1, -1, self.time_dim)
             # t += self.label_emb(y)
+            # print("time_space:", t.shape, "\n latent_space", latent_image.shape)
             t += latent_image
 
         x1 = self.inc(x)
+        print("x1_shape: \t",x1.shape)
         x2 = self.down1(x1, t)
+        print("x2_shape: \t",x2.shape)
         x2 = self.sa1(x2)
         x3 = self.down2(x2, t)
         x3 = self.sa2(x3)

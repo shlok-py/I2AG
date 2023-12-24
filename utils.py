@@ -56,9 +56,15 @@ def get_data(file_path):
             # plt.imshow(spectrogram_data)
             # plt.show()
             # break
+            # print(spectrogram_data.shape)
+            spectrogram_data = np.transpose(spectrogram_data, (2, 0, 1))
+            spectrogram_data = np.pad(spectrogram_data, ((0, 0), (0, 600), (0, 0)), mode='constant')
+            # print("initial spectrogram data", spectrogram_data.shape)
+            image_data = image_data.astype(np.float32)
+            spectrogram_data = spectrogram_data.astype(np.float32)
             image.append(image_data)
             spectrogram.append(spectrogram_data)
-        
+        print('image', type(image[0]))
         return image, spectrogram
 # def load_data():
     # image, spec = get_data('new_data.h5')
@@ -76,17 +82,17 @@ def get_data(file_path):
 
 def load_transformed_dataset():
     image, spec = get_data('../new_data.h5')
-    print(len(image))
+    # print(len(image))
     # image = np.asarray(image)
     # spec = np.asarray(spec)
-    print(type(image), type(spec))
+    # print(type(image), type(spec))
     dataset = CustomDataset(image, spec)
     # print(dataset[0][0])
     # plt.imshow(np.asarray(dataset[0][0]))
     # plt.show()
     # print(dataset[0][0].shape)
     # data_transform = transforms.Compose(data_transforms)
-    batch_size = 4
+    batch_size = 2
     dataloader = DataLoader(dataset, batch_size=batch_size)
     return dataloader
 
@@ -108,8 +114,11 @@ if __name__ == '__main__':
     # get_data("../../data.h5")
     # get_data('new_data.h5')
     # load_data()
-    load_transformed_dataset()
-    pbar = tqdm(load_transformed_dataset)
+    # load_transformed_dataset()
+    pbar = tqdm(load_transformed_dataset())
+    # print('\npbar', pbar)
+    # print('')
     for i, (images, spectrograms) in enumerate(pbar):
-        print(images)
-        print(spectrograms)
+        print(i, '\t image \t', images)
+        print(i , '\t spectrograms \t', spectrograms)
+    # get_data('../new_data.h5')

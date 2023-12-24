@@ -20,24 +20,35 @@ import matplotlib.pyplot as plt
 
 # print(len(torch.randint(low=1, high = 1000, size = (1000,))))
 # print(len(1/(10000**(torch.arange(0, 256, 2)/ 256))))
-def pos_enc(t, channels):
-    inv_freq = 1.0 / (
-        10000
-        ** (torch.arange(0, channels, 2).float() / channels)
-    )
-    pos_enc_a = torch.sin(t.repeat(1, channels // 2) * inv_freq)
-    print('pos encoding_a',pos_enc_a.shape)
-    pos_enc_b = torch.cos(t.repeat(1, channels // 2) * inv_freq)
-    print('pos encoding_b',pos_enc_b.shape)
-    pos_enc = torch.cat([pos_enc_a, pos_enc_b], dim=-1)
-    return pos_enc
+# def pos_enc(t, channels):
+#     inv_freq = 1.0 / (
+#         10000
+#         ** (torch.arange(0, channels, 2).float() / channels)
+#     )
+#     pos_enc_a = torch.sin(t.repeat(1, channels // 2) * inv_freq)
+#     print('pos encoding_a',pos_enc_a.shape)
+#     pos_enc_b = torch.cos(t.repeat(1, channels // 2) * inv_freq)
+#     print('pos encoding_b',pos_enc_b.shape)
+#     pos_enc = torch.cat([pos_enc_a, pos_enc_b], dim=-1)
+#     return pos_enc
 
 
-t = torch.randint(low=1, high = 1000, size = (1000,))
-# print("1:-------------\n",len(t))
-t = t.unsqueeze(-1)
-# print("2:-------------\n",len(t))
-t = pos_enc(t, 256)
-print("3------------\n", t.shape)
-# print(t.repeat(1, 256//2).shape)
+# t = torch.randint(low=1, high = 1000, size = (1000,))
+# # print("1:-------------\n",len(t))
+# t = t.unsqueeze(-1)
+# # print("2:-------------\n",len(t))
+# t = pos_enc(t, 256)
+# print("3------------\n", t.shape)
+# # print(t.repeat(1, 256//2).shape)
 # print(5//2)
+# import torch
+
+# Assuming you have the time_space and latent_space tensors
+time_space = torch.randn(4, 256)  # Example tensor with shape [4, 256]
+latent_space = torch.randn(4, 128)  # Example tensor with shape [4, 128]
+
+result = time_space + latent_space.unsqueeze(1)  # Unsqueeze to add a new dimension along axis 1
+
+# Print the result
+print(result.shape)  # Shape of the result tensor
+print(result)

@@ -13,7 +13,7 @@ from tqdm import tqdm
 import os
 from UNet import EMA, UNet_conditional
 import logging
-from torch.utils.tensorboard import SummaryWriter
+# from torch.utils.tensorboard import SummaryWriter
 from utils import load_transformed_dataset, plot_images, save_images
 from encoder import Encoder
 
@@ -21,7 +21,7 @@ os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 # image_path = '/home/shlok/working_data/Ferret/images/0BPYR995WNU5.jpg'
 image_path = 'd://working_data/Ferret/images/0BPYR995WNU5.jpg'
 class Diffusion:
-    def __init__(self, noise_steps = 1000, beta_start = 0.0001, beta_end = 0.02, image_size = 256, device = 'cuda') -> None:
+    def __init__(self, noise_steps = 1000, beta_start = 0.0001, beta_end = 0.02, image_size = 256, device = 'cpu') -> None:
         self.noise_steps = noise_steps
         self.beta_start = beta_start
         self.beta_end = beta_end
@@ -34,7 +34,7 @@ class Diffusion:
         self.sqrt_alpha_hat = torch.sqrt(self.alpha_hat)
         self.sqrt_alpha_inverse = torch.sqrt(1-self.alpha)
         # print(self.sqrt_alpha)
-        self.noise = self._get_gaussian_noise()
+        # self.noise = self._get_gaussian_noise()
     
     def _get_alpha_hat(self, alpha):
         # print(torch.cumprod(self.alpha, dim = 0))
@@ -43,11 +43,17 @@ class Diffusion:
     def get_beta(self, beta_start, beta_end):
         betas = torch.linspace(beta_start, beta_end, self.noise_steps).to(self.device)
         return betas
-    def _get_gaussian_noise(self):
-        return torch.randn(3, self.image_size, self.image_size).to(self.device)
+    def _get_gaussian_noise(self,x):
+        return torch.randn_like(x).to(self.device)
+    def sample_timesteps(self, n):
+        return torch.randint(low=1, high=self.noise_steps, size=(n,))
     
-    def t_noiser(self, x):
-        return self.sqrt_alpha_hat*x + self.sqrt_alpha_hat_inverse * self._get_gaussian_noise()
+    def t_noiser(self, x,t):
+        sqrt_alpha_hat = torch.sqrt(self.alpha_hat[t])[:, None, None, None]
+        sqrt_one_minus_alpha_hat = torch.sqrt(1 - self.alpha_hat[t])[:, None, None, None]
+        noise = self._get_gaussian_noise(x)
+        # return self.sqrt_alpha_hat[t]*x + self.sqrt_alpha_inverse[t] * self._get_gaussian_noise()
+        return sqrt_alpha_hat * x + sqrt_one_minus_alpha_hat * noise, noise
     def noiser(self, x): # noise the image
         noised = []
         for i in range(self.noise_steps):
@@ -88,7 +94,7 @@ def train(args):
     model = UNet_conditional().to(device)
     optimizer = optim.AdamW(model.parameters(), lr=args.lr)
     mse = nn.MSELoss()
-    diffusion = Diffusion(img_size=args.img_size, device=device)
+    diffusion = Diffusion(image_size=args.img_size, device=device)
     # logger = SummaryWriter(os.path.join("runs", args.run_name))
     l = len(dataloader)
     ema = EMA(0.995)
@@ -104,7 +110,8 @@ def train(args):
             x_t, noise = diffusion.t_noiser(spectrograms, t)
             # if np.random.random() < 0.1:
             #     labels = None
-            encoder = Encoder(args.img_size, 64)
+            print('Images Shape', images.shape)
+            encoder = Encoder(torch.prod(torch.tensor(images.shape[-3:])), 256)
             latent_image = encoder(images)
             predicted_noise = model(x_t, t, latent_image)
             loss = mse(noise, predicted_noise)
@@ -124,9 +131,9 @@ def train(args):
             plot_images(sampled_images)
             save_images(sampled_images, os.path.join("results", args.run_name, f"{epoch}.jpg"))
             # save_images(ema_sampled_images, os.path.join("results", args.run_name, f"{epoch}_ema.jpg"))
-            torch.save(model.state_dict(), os.path.join("models", args.run_name, f"ckpt.pt"))
-            torch.save(ema_model.state_dict(), os.path.join("models", args.run_name, f"ema_ckpt.pt"))
-            torch.save(optimizer.state_dict(), os.path.join("models", args.run_name, f"optim.pt"))
+            torch.save(model.state_dict(), os.path.join("models", args.run_name, f"ckpt{epoch%10}.pt"))
+            # torch.save(ema_model.state_dict(), os.path.join("models", args.run_name, f"ema_ckpt.pt"))
+            torch.save(optimizer.state_dict(), os.path.join("models", args.run_name, f"optim{epoch%10}.pt"))
 
 def launch():
     import argparse
@@ -134,28 +141,29 @@ def launch():
     args = parser.parse_args()
     args.run_name = "I2AG__"
     args.epochs = 300
-    args.batch_size = 4
+    args.batch_size = 2
     args.img_size = 256
     # args.num_classes = 10
     # args.dataset_path = r"C:\Users\dome\datasets\cifar10\cifar10-64\train"
-    args.device = "cuda"
+    args.device = "cpu"
     args.lr = 3e-4
     train(args)
     
             
 if __name__ == "__main__":
-    diffusion = Diffusion()
-    x = Image.open(image_path)
-    resize = transforms.Resize((256,256))
-    x = resize(x)
-    plt.imshow(x)
-    plt.show()
-    x = transforms.ToTensor()(x)
-    x = x.to(diffusion.device)
-    print(x.shape)
+    launch()
+    # diffusion = Diffusion()
+    # x = Image.open(image_path)
+    # resize = transforms.Resize((256,256))
+    # x = resize(x)
+    # plt.imshow(x)
+    # plt.show()
+    # x = transforms.ToTensor()(x)
     # x = x.to(diffusion.device)
-    x_noisy, noised = diffusion.noiser(x)
-    print(x_noisy.shape) 
+    # print(x.shape)
+    # x = x.to(diffusion.device)
+    # x_noisy, noised = diffusion.noiser(x)
+    # print(x_noisy.shape) 
     # plt.subplot(1,2,1)
     # x = np.transpose(x, (1, 2, 0))
     # plt.imshow(x)
@@ -170,10 +178,10 @@ if __name__ == "__main__":
 
     #     plt.imshow(x)
 
-    x = np.transpose(x_noisy, (1, 2, 0))
-    plt.imshow(x)
+    # x = np.transpose(x_noisy, (1, 2, 0))
+    # plt.imshow(x)
 
-    plt.show()     
+    # plt.show()     
     # x = x.squeeze(0)
     # x = x.permute(1,2,0)
     # x = x.cpu().detach().numpy()
