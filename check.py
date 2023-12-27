@@ -44,11 +44,16 @@ import matplotlib.pyplot as plt
 # import torch
 
 # Assuming you have the time_space and latent_space tensors
-time_space = torch.randn(4, 256)  # Example tensor with shape [4, 256]
-latent_space = torch.randn(4, 128)  # Example tensor with shape [4, 128]
+# time_space = torch.randn(4, 256)  # Example tensor with shape [4, 256]
+# latent_space = torch.randn(4, 128)  # Example tensor with shape [4, 128]
 
-result = time_space + latent_space.unsqueeze(1)  # Unsqueeze to add a new dimension along axis 1
+# result = time_space + latent_space.unsqueeze(1)  # Unsqueeze to add a new dimension along axis 1
 
 # Print the result
-print(result.shape)  # Shape of the result tensor
-print(result)
+# print(result.shape)  # Shape of the result tensor
+# print(result)
+x = torch.tensor(np.random.rand(2,128,128,128))
+x = x.view(-1, 128*16*16, 2 * 2).swapaxes(1, 2)
+print(x.shape)
+x = x.swapaxes(2,1).view(-1, 128, 2,2)
+print(x.shape)

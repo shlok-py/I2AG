@@ -19,6 +19,13 @@ class CustomDataset(Dataset):
 
         ])
         # self.compose_data_transform = transforms.Compose(self.data_transforms)
+         
+        self.spectrogram_data_transforms = transforms.Compose([
+                    ResizeSpectrogram(size=(256, 256)),
+                    transforms.Normalize(mean=[0.5], std=[0.5])
+
+
+        ])
         
 
     def __len__(self):
@@ -40,10 +47,28 @@ class CustomDataset(Dataset):
             print(image.shape)
                 
         if not isinstance(spectrogram, torch.Tensor):
-            # print('\nspectrogram\n\n', spectrogram.shape, '\n\n')
-            spectrogram = self.data_transforms(spectrogram)
+            print('\nspectrogram\n\n', spectrogram.shape, '\n\n')
+            spectrogram = self.spectrogram_data_transforms(spectrogram)
             spectrogram = np.array(spectrogram)
             print('\nspectrogram\n\n', spectrogram.shape, '\n\n')
             
             spectrogram = torch.from_numpy(spectrogram)
         return image, spectrogram
+class ResizeSpectrogram:
+    def __init__(self, size):
+        self.size = size
+
+    def __call__(self, spectrogram):
+        # Convert the spectrogram to a PyTorch tensor
+        spectrogram_tensor = torch.from_numpy(spectrogram)
+        spectrogram_tensor = spectrogram_tensor[:3, :, :]
+
+        # Resize the spectrogram tensor
+        resized_spectrogram = torch.nn.functional.interpolate(
+            spectrogram_tensor.unsqueeze(0),  # Add a batch dimension
+            size=self.size,
+            mode="bilinear",
+            align_corners=False,
+        ).squeeze(0)  # Remove the batch dimension
+
+        return resized_spectrogram

@@ -47,11 +47,16 @@ class SelfAttention(nn.Module):
         )
 
     def forward(self, x):
+        print("\n\nselfAttention\t\t", x.shape, '\n\n')
         x = x.view(-1, self.channels, self.size * self.size).swapaxes(1, 2)
+        print("newx\t:\t", x.shape)
         x_ln = self.ln(x)
         attention_value, _ = self.mha(x_ln, x_ln, x_ln)
         attention_value = attention_value + x
         attention_value = self.ff_self(attention_value) + attention_value
+        print("\n\nattention value\t:\t", attention_value.shape)
+        # print("\n\nattentionvalue_new\t:", attention_value.swapaxes(2, 1).view(-1, self.channels, self.size*4, self.size*4).shape)
+        print("\n\nswapaxes\t:\t", attention_value.swapaxes(2,1).shape)
         return attention_value.swapaxes(2, 1).view(-1, self.channels, self.size, self.size)
 
 
@@ -94,8 +99,10 @@ class Down(nn.Module):
         )
 
     def forward(self, x, t):
+        print('\n\nxshape:\t', x.shape, '\n\ntshape\t', t.shape, '\n\n')
         x = self.maxpool_conv(x)
         emb = self.emb_layer(t)[:, :, None, None].repeat(1, 1, x.shape[-2], x.shape[-1])
+        print("\n\nxxshape",x.shape, "\n\nembshape", emb.shape,"\n\n")
         return x + emb
 
 
@@ -187,7 +194,7 @@ class UNet(nn.Module):
 
 
 class UNet_conditional(nn.Module):
-    def __init__(self, c_in=4, c_out=4, time_dim=256, num_classes=None, image_embeddings = None, device="cpu"):
+    def __init__(self, c_in=3, c_out=3, time_dim=256, num_classes=None, image_embeddings = None, device="cpu"):
         super().__init__()
         self.device = device
         self.time_dim = time_dim
